@@ -1,0 +1,5 @@
+;;; niwatori.meta
+((author "yagihiroki")
+ (synopsis "niwatori")
+ (license "MIT license http://opensource.org/licenses/mit-license.php")
+ (files "main.scm" "niwatori.scm" "niwatori.setup" "niwatori.meta"))

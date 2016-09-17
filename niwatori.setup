@@ -1,0 +1,11 @@
+;;; niwatori.setup
+
+;;; コンパイル
+(compile -s -O3 -d1 "niwatori.scm" -j niwatori)
+(compile -s -O3 -d0 "niwatori.import.scm")
+
+;;; インストール
+(install-extension
+ 'niwatori
+ '("niwatori.so" "niwatori.import.so")
+ '((version 1.0)))
