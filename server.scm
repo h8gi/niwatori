@@ -5,9 +5,11 @@
   (make-parameter
    (lambda (client header request-body)
      (display "Hello World!"))))
+(define *server-port*
+  (make-parameter 8080))
 
 (define (server-start)
-  (define listener (tcp-listen 8080))
+  (define listener (tcp-listen (*server-port*)))
   (define listener-fileno (tcp-listener-fileno listener))
   (define (fileno-list)
     (cons* listener-fileno

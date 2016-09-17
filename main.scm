@@ -11,4 +11,7 @@
      (printf "<p> uri: ~A</p>\n" uri)
      (display "</html>"))))
 
+(*server-port* 8081)
+
 (server-start)
+
