@@ -3,3 +3,4 @@
 *.html
 *.import.scm
 *.o
+*test*
