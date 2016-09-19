@@ -1,9 +1,9 @@
-(use tcp6 uri-common irregex posix)
-(define-record client fileno in out)
+(use tcp6 uri-common irregex posix defstruct)
+(defstruct client fileno in out)
 (define *client-table*  (make-hash-table))
 (define *server-proc*
   (make-parameter
-   (lambda (client header request-body)
+   (lambda (request)
      (display "Hello World!"))))
 (define *server-port*
   (make-parameter 8080))
@@ -49,7 +49,9 @@
 ;;; 新規接続
 (define (new-client listener)
   (receive (i o) (tcp-accept listener)
-    (make-client (port->fileno i) i o)))
+    (make-client #:fileno (port->fileno i)
+		 #:in i
+		 #:out o)))
 ;;; clientをテーブルに追加
 (define (add-client! client)
   (hash-table-set! *client-table* (client-fileno client) client))
@@ -69,8 +71,16 @@
   (close-output-port (client-out client))
   (hash-table-delete! *client-table* (client-fileno client)))
 
+;;; request ==================================================
+(defstruct request
+  method uri http-version header body)
 
-;;; header --------------------------------------------------
+(define (read-request #!optional (in (current-input-port)))
+  (with-input-from-port in
+    (lambda ()
+      (read-request-body (read-request-header)))))
+
+;;; header ------------------------------------------------
 (define (parse-request-line line)
   (let ([m (irregex-match (irregex '(: (=> method (+ (~ space)))
 				       (+ space)
@@ -82,10 +92,11 @@
 	(let ([method (irregex-match-substring m 'method)]
 	      [uri    (irregex-match-substring m 'uri)]
 	      [http-version (irregex-match-substring m 'http-version)])
-	  (list (cons 'http-version http-version)
-		(cons 'uri uri)
-		(cons 'method (string->symbol (string-downcase method)))))
-	'())))
+	  ;; (list (cons 'http-version http-version)
+	  ;; 	(cons 'uri uri)
+	  ;; 	(cons 'method (string->symbol (string-downcase method))))
+	  (values ((compose string->symbol string-downcase) method) uri http-version))
+	(values #f #f #f))))
 
 (define (parse-request-header-line line)
   (let ([m (irregex-match (irregex "([^:]+): *(.+)" 'i) line)])
@@ -93,16 +104,32 @@
                 (string-trim-both (irregex-match-substring m 2)))
         #f)))
 
-(define (read-request-header #!optional (in (current-input-port)))
-  (let ([request-line (parse-request-line (->string (read-line in)))])
-    (let loop ([line (read-line in)]
-	       [acc request-line])
-      (if (or (eof-object? line) (irregex-match '(* space) line))
-	  (reverse! acc)
-	  (let ([m (parse-request-header-line line)])
-	    (loop (read-line in)
-		  (if m (cons m acc) acc)))))))
 
+(define (read-request-header #!optional (in (current-input-port)))
+  (receive (method uri http-version) (parse-request-line (read-line in))
+    (let ([request (make-request #:method method
+				 #:uri uri
+				 #:http-version http-version)])
+      (let loop ([line (read-line in)]
+		 [acc  '()])
+	(if (or (eof-object? line) (irregex-match '(* space) line))
+	    (update-request request #:header (reverse! acc))
+	    (let ([m (parse-request-header-line line)])
+	      (loop (read-line in)
+		    (if m (cons m acc) acc))))))))
+;;; body------------------------------------------------
+(define (read-request-body request #!optional (in (current-input-port)))
+  (let ([header-alst (request-header request)])
+    (update-request request
+		    #:body
+		    (cond [(alist-ref 'content-length header-alst)
+			   =>
+			   (lambda (content-length-str)
+			     (read-string (or (string->number content-length-str) 0) in))]
+			  [else #f]))))
+
+
+;;; response ==================================================
 (define (display-header header-alst #!optional (out (current-output-port)))
   (with-output-to-port out
     (lambda ()
@@ -114,27 +141,12 @@
                   (newline))
                 header-alst)
       (newline))))
-;;; body--------------------------------------------------
-(define (read-request-body header-alist #!optional (in (current-input-port)))
-  (cond [(alist-ref 'content-length header-alist)
-	 =>
-	 (lambda (content-length-str)
-	   (read-string (or (string->number content-length-str) 0) in))]
-	[else ""]))
 
-;;; (proc client header request-body)
+;;; (proc request)
 (define (serve-client client proc)
-  (let* ([header	(read-request-header (client-in client))]
-	 [request-body  (read-request-body header (client-in client))]
-	 [response-body (with-output-to-string
-			    (lambda ()
-			      (proc client header request-body)))]
-	 [len (if (string? response-body) (string-length response-body))])
-    (pp header)
+  (let* ([request	(read-request (client-in client))])
+    (pp (request-header request))
     (with-output-to-port (client-out client)
       (lambda ()
-	(write-line "HTTP/1.1 200 OK")
-	(display-header `((content-type "text/html")
-			  (content-length ,len)))
-	(display response-body))))
+	(proc request))))
   (close-client client))
