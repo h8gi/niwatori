@@ -47,20 +47,16 @@
   (ir-macro-transformer
    (lambda (expr inject compare)
      (match expr
-       [(_ method path-irx thunk)
-	(let ([match-data (inject 'matched)]
+       [(_ method path-irx thunk opts ...)
+        (let ([match-data (inject 'matched)]
 	      [request    (inject 'request)])
 	  `(action-set! ,method ,path-irx
 			(lambda (,match-data ,request)
-			  (send-response ,thunk))))]
-       [(_ method path-irx thunk '#:status status ...)
-	]))))
+			  (send-response ,thunk ,@opts))))]))))
+
 
 
 (@ 'get "/hello"
-	(status 200)
-	(reason "FOO")
-	(header '((a . 200)))
 	(lambda ()
 	  (display "Hello")
 	  (display (request-header request))))
@@ -102,6 +98,6 @@
 ;; 	   #:status 404
 ;; 	   #:reason "NOT FOUND")))
 
-(*server-port* 8081)
-(server-start)
+;; (*server-port* 8081)
+;; (server-start)
 
