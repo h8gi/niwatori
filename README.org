@@ -1,7 +1,5 @@
 #+OPTIONS: \n:t
-
 * niwatori
-
 Simple web framework for chicken scheme. Imspired by Sinatra.
 
 ** Usage
