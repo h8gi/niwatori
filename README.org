@@ -1,1 +1,43 @@
 * niwatori
+
+Simple web framework for chicken scheme. Imspired by Sinatra.
+
+** Usage
+
+*** @
+    =(@ method path-irregex body-thunk #!key #:header '() #:status 200 #:reason 'ok )=
+    Action setter. *method* is a symbol (get, head, post, put, delete).
+    *path-irregex* is *irregex* or *string* (see [[https://wiki.call-cc.org/man/4/Unit%2520irregex#irregex][irregex]] unit). 
+    *body-thunk* is thunk which display the response body.
+    *header* is alist of http header.
+    In *body-thunk*, you can access four anaphoric variables.
+    - $header ::
+	 The request header alist.
+    - $uri ::
+	 The request uri string.
+    - $body :: 
+	 The request body string.
+    - $matched ::
+	 The matched object getter.
+	 
+** Example
+   See */test* directory.
+   
+#+BEGIN_SRC scheme
+  (use niwatori)
+  (@ 'get "/hello"
+          (lambda ()
+            (display $header)))
+
+  (@ 'get "/name/(?<name>[^/]+)"
+          (lambda ()
+            (display ($matched 'name))))
+
+  (@ 'post "/name/(?<name>[^/]+)"
+          (lambda ()
+            (printf "~A: ~A" ($matched 'name) $body)))
+
+
+  (*server-port* 8081)
+  (server-start)
+#+END_SRC

@@ -1,8 +1,8 @@
 ;;; main.scm    source of niwatori.scm
 (use matchable)
 (import-for-syntax matchable)
-
 (include "server.scm")
+
 (define (send-response body-thunk
 		       #!key (status 200) (reason "OK") (header '()))
   (let* ([body   (with-output-to-string body-thunk)]
@@ -14,13 +14,32 @@
     (display body)))
 
 (define *action-table* (alist->hash-table '((get) (post) (head) (put) (delete))))
+(define (init-action-table!)
+  (set! *action-table* (alist->hash-table '((get) (post) (head) (put) (delete)))))
 
 ;;; action setter
-(define (action-set! method path-irx proc)
-  (let ([table (hash-table-ref *action-table* method)])
-    (hash-table-set! *action-table*
-		     method
-		     (append table (list (cons path-irx proc))))))
+;;; (proc mached-ref method header body)
+(define (action-set! method path-irx action)
+  (let ([table (hash-table-ref/default *action-table* method #f)])
+    (if table
+	(hash-table-set! *action-table*
+			 method
+			 (append table (list (cons path-irx action))))
+	(error "Illegal method" method))))
+;;; syntax sugar of action setter 
+(define-syntax @
+  (ir-macro-transformer
+   (lambda (expr inject compare)
+     (match expr
+       [(_ method path-irx thunk opts ...)
+        (let ([matched  (inject '$matched)]
+	      [request  (inject '$request)]
+	      [header   (inject '$header)]
+	      [uri	(inject '$uri)]
+	      [body	(inject '$body)])
+	  `(action-set! ,method ,path-irx
+			(lambda (,matched ,request ,header ,uri ,body)
+			  (send-response ,thunk ,@opts))))]))))
 
 (define (action-dispacher request)
   (let ([method	(request-method request)]
@@ -37,67 +56,13 @@
 			 [action (cdr pair)]
 			 [m (irregex-match irx uri)])
 		    (if m
-			(action m request)
+			(action (lambda (name-or-index)
+				  (irregex-match-substring m name-or-index))
+				request
+				header
+				uri
+				body)
 			(inner (cdr table))))]))
-    (inner (hash-table-ref *action-table* method))))
+    (inner (hash-table-ref/default *action-table* method '()))))
 
 (*server-proc* action-dispacher)
-
-(define-syntax @
-  (ir-macro-transformer
-   (lambda (expr inject compare)
-     (match expr
-       [(_ method path-irx thunk opts ...)
-        (let ([match-data (inject 'matched)]
-	      [request    (inject 'request)])
-	  `(action-set! ,method ,path-irx
-			(lambda (,match-data ,request)
-			  (send-response ,thunk ,@opts))))]))))
-
-
-
-(@ 'get "/hello"
-	(lambda ()
-	  (display "Hello")
-	  (display (request-header request))))
-
-;; (@ 'get "/hello/"
-;; 	(lambda (m rq)
-;; 	  (send-response
-;; 	   (lambda () (display "HELLO")))))
-
-;; (@ 'get "/foo"
-;; 	(lambda (m rq)
-;; 	  (send-response
-;; 	   (lambda () (display "FOO")))))
-
-;; (@ 'get '(: "/name/" (=> name (+ any)))
-;; 	(lambda (m rq)
-;; 	  (let ([name (irregex-match-substring m 'name)])
-;; 	    (send-response
-;; 	     (lambda () (printf "Your name: ~A" name))))))
-
-;; (@ 'post "/hello"
-;; 	 (lambda (m rq)
-;; 	   (send-response
-;; 	    (lambda ()
-;; 	      (display "POT HELLO~%")
-;; 	      (display (request-body request))))))
-
-;; (@ 'post "/foo"
-;; 	 (lambda (m rq)
-;; 	   (send-response
-;; 	    (lambda ()
-;; 	      (display "POST FOO")))))
-
-;; (@ 'get ".*"
-;; 	(lambda (m rq)
-;; 	  (send-response
-;; 	   (lambda ()
-;; 	     (display "404 NOT FOUND"))
-;; 	   #:status 404
-;; 	   #:reason "NOT FOUND")))
-
-;; (*server-port* 8081)
-;; (server-start)
-

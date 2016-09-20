@@ -9,4 +9,4 @@
  'niwatori
  '("niwatori.so" "niwatori.import.so")
  '((version 1.0))
- '(depends tcp6 uri-common))
+ '(depends tcp6 uri-common matchable))
