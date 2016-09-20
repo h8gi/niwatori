@@ -87,7 +87,7 @@
 				       (=> uri (+ (~ space)))
 				       (+ space)
 				       (=> http-version (+ (~ space)))) 'i)
-			  line)])
+			  (if (eof-object? line) "" line))])
     (if m
 	(let ([method (irregex-match-substring m 'method)]
 	      [uri    (irregex-match-substring m 'uri)]
@@ -126,7 +126,7 @@
 			   =>
 			   (lambda (content-length-str)
 			     (read-string (or (string->number content-length-str) 0) in))]
-			  [else #f]))))
+			  [else ""]))))
 
 
 ;;; response ==================================================
