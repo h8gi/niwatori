@@ -4,8 +4,7 @@ Simple web framework for chicken scheme. Imspired by Sinatra.
 
 ** Usage
 
-*** @
-    =(@ method path-irregex body-thunk #!key #:header '() #:status 200 #:reason 'ok )=
+*** @ =(@ method path-irregex body-thunk #!key #:header '() #:status 200 #:reason 'ok )=
     Action setter. *method* is a symbol (get, head, post, put, delete).
     *path-irregex* is *irregex* or *string* (see [[https://wiki.call-cc.org/man/4/Unit%2520irregex#irregex][irregex]] unit). 
     *body-thunk* is thunk which display the response body.
