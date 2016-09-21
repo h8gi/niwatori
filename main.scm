@@ -3,11 +3,11 @@
 (import-for-syntax matchable)
 (include "server.scm")
 
-(define (header-ref key header)
+(define (header-ref header key)
   (alist-ref key header (lambda (x y)
 			  (string-ci= (->string x)
 				      (->string y)))))
-(define (header-update key value header)
+(define (header-update header key value)
   (alist-update key value header (lambda (x y)
 				   (string-ci= (->string x)
 					       (->string y)))))
@@ -17,9 +17,9 @@
   (let* ([body   (with-output-to-string body-thunk)]
 	 [header
 	  (cons `(content-length . ,(string-length body))
-		(if (header-ref 'content-type header)
+		(if (header-ref header 'content-type)
 		    header
-		    (header-update 'content-type "text/html" header)))])
+		    (header-update header 'content-type "text/html")))])
     (printf "HTTP/1.1 ~A ~A~%" status reason)
     (display-header header)
     (display body)))
